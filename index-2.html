@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chronicle — Event Timeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600&display=swap" rel="stylesheet" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080c;
+  --surface:#0f1016;
+  --card:#13141c;
+  --card-hover:#171824;
+  --border:#1e2030;
+  --border-mid:#2a2d45;
+  --gold:#c4973e;
+  --gold-light:#e8c97c;
+  --gold-dim:#6b5220;
+  --text:#ddd5c0;
+  --text-muted:#7d7a8a;
+  --text-faint:#4a4860;
+  --error:#d95f5f;
+  --error-bg:#1a0d0d;
+  --success:#4ca87c;
+  --line:#1a1c28;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Source Serif 4',Georgia,serif;min-height:100vh;line-height:1.6}
+::selection{background:var(--gold-dim);color:var(--gold-light)}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:3px}
+
+.app{max-width:860px;margin:0 auto;padding:0 24px 80px}
+
+header{padding:60px 0 40px;text-align:center;position:relative}
+header::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:60px;height:1px;background:var(--gold-dim)}
+.header-emblem{font-size:28px;color:var(--gold);margin-bottom:16px;letter-spacing:8px;opacity:.7}
+header h1{font-family:'Playfair Display',Georgia,serif;font-size:clamp(42px,8vw,72px);font-weight:900;letter-spacing:-1px;line-height:1;color:#ede7d4;margin-bottom:10px}
+header h1 em{font-style:italic;color:var(--gold)}
+header p{color:var(--text-muted);font-size:15px;letter-spacing:.5px;font-weight:300}
+
+main{margin-top:50px;display:grid;gap:40px}
+
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.section-head{padding:18px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;transition:background .2s}
+.section-head:hover{background:var(--card)}
+.section-head.static{cursor:default}
+.section-head:hover.static{background:transparent}
+.section-head span:first-child{font-family:'Playfair Display',serif;font-size:16px;letter-spacing:.3px;color:#ccc4ae}
+.section-head .meta{font-size:13px;color:var(--text-faint);font-family:'Source Serif 4',serif}
+.chevron{color:var(--text-faint);font-size:20px;transition:transform .3s;display:inline-block;line-height:1}
+.chevron.open{transform:rotate(90deg)}
+
+form{padding:24px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+.field{padding:12px 0;position:relative}
+.field.span2{grid-column:1/-1}
+label{display:block;font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px;font-family:'Source Serif 4',serif;font-weight:600}
+input,textarea,select{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Source Serif 4',Georgia,serif;font-size:15px;padding:10px 14px;outline:none;transition:border-color .2s,background .2s;resize:vertical}
+input:focus,textarea:focus{border-color:var(--gold-dim);background:var(--card-hover)}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.4)}
+textarea{min-height:90px;line-height:1.5}
+.error-msg{display:block;margin-top:6px;font-size:12px;color:var(--error);font-style:italic}
+
+.suggest-row{padding:16px 0 8px;display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.btn-suggest{background:transparent;border:1px solid var(--gold-dim);color:var(--gold);font-family:'Source Serif 4',serif;font-size:14px;padding:9px 20px;border-radius:8px;cursor:pointer;transition:all .2s;letter-spacing:.3px;white-space:nowrap}
+.btn-suggest:hover:not(:disabled){background:var(--gold-dim);color:var(--gold-light)}
+.btn-suggest:disabled{opacity:.5;cursor:not-allowed}
+.suggestion-pill{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--gold-dim);border-radius:8px;padding:9px 14px;font-size:14px;max-width:100%;flex:1;min-width:0}
+.pill-icon{color:var(--gold);font-size:16px;flex-shrink:0}
+.pill-text{color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill-type{font-size:11px;color:var(--text-faint);background:var(--border);padding:2px 8px;border-radius:4px;flex-shrink:0;letter-spacing:.3px}
+
+.form-actions{padding-top:20px;border-top:1px solid var(--border);margin-top:8px}
+.btn-submit{background:var(--gold);border:none;color:#0a0800;font-family:'Playfair Display',serif;font-size:15px;font-weight:700;letter-spacing:.3px;padding:12px 32px;border-radius:8px;cursor:pointer;transition:all .2s}
+.btn-submit:hover{background:var(--gold-light);transform:translateY(-1px)}
+.btn-submit:active{transform:translateY(0)}
+
+.timeline-wrap{padding:24px}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-faint);font-style:italic;font-size:16px}
+
+.timeline{position:relative;padding-left:28px}
+.timeline::before{content:'';position:absolute;left:7px;top:12px;bottom:12px;width:1px;background:linear-gradient(to bottom,transparent,var(--border-mid) 10%,var(--border-mid) 90%,transparent)}
+
+.tl-item{position:relative;padding-bottom:28px}
+.tl-item:last-child{padding-bottom:0}
+.tl-dot{position:absolute;left:-28px;top:20px;width:15px;height:15px;border-radius:50%;background:var(--gold-dim);border:2px solid var(--gold);box-shadow:0 0 0 4px var(--bg)}
+
+.event-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px 22px;transition:border-color .2s}
+.event-card:hover{border-color:var(--border-mid)}
+
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.card-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.card-date{font-size:13px;color:var(--gold);font-weight:600;letter-spacing:.3px}
+.card-category{font-size:11px;letter-spacing:.5px;text-transform:uppercase;background:var(--border);color:var(--text-muted);padding:3px 10px;border-radius:4px}
+.btn-delete{background:transparent;border:1px solid transparent;color:var(--text-faint);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;line-height:1}
+.btn-delete:hover{border-color:var(--error);color:var(--error);background:var(--error-bg)}
+
+.card-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#e8e0cc;margin-bottom:10px;line-height:1.3}
+.card-desc{font-size:15px;color:var(--text-muted);font-weight:300;line-height:1.6;margin-bottom:16px}
+
+.card-footer{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.card-field{background:var(--surface);border-radius:6px;padding:8px 12px;font-size:13px}
+.card-field-label{color:var(--text-faint);font-size:11px;letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:3px}
+.card-field-val{color:var(--text);word-break:break-all}
+.card-activity{grid-column:1/-1;background:var(--bg);border:1px dashed var(--gold-dim);border-radius:6px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start}
+.activity-icon{color:var(--gold);font-size:14px;flex-shrink:0;margin-top:2px}
+.activity-text{font-size:13px;color:var(--text-muted);font-style:italic;line-height:1.5}
+
+@media(max-width:580px){
+  .form-grid{grid-template-columns:1fr}
+  .field.span2{grid-column:1}
+  .card-footer{grid-template-columns:1fr}
+  .card-activity{grid-column:1}
+  header h1{font-size:38px}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useLayoutEffect } = React;
+
+const BITS_EMAIL_RE   = /^[a-z]\d{4}[a-z0-9.]+@(pilani|goa|hyderabad|dubai)\.bits-pilani\.ac\.in$/i;
+const BITS_ID_SINGLE  = /^\d{4}[A-Z]\d[A-Z]{2}\d{4}[A-Z]$/;
+const BITS_ID_DUAL    = /^\d{4}[A-Z]\d[A-Z]\d[A-Z]{2}\d{4}[A-Z]$/;
+const TITLE_RE        = /^[a-zA-Z0-9 ]{3,}$/;
+const CATEGORY_RE     = /^[a-zA-Z ]+$/;
+
+function validate(f) {
+  const e = {};
+  if (!TITLE_RE.test(f.title.trim()))                                        e.title       = 'Min 3 chars — letters, numbers, and spaces only';
+  if (f.description.trim().length < 10)                                       e.description = 'Must be at least 10 characters';
+  if (!f.date)                                                                e.date        = 'Date is required';
+  if (!f.category.trim() || !CATEGORY_RE.test(f.category.trim()))            e.category    = 'Letters and spaces only';
+  if (!BITS_EMAIL_RE.test(f.email))                                          e.email       = 'e.g. f20190001@pilani.bits-pilani.ac.in';
+  if (!BITS_ID_SINGLE.test(f.bitsId.toUpperCase()) && !BITS_ID_DUAL.test(f.bitsId.toUpperCase())) e.bitsId = 'Single: 2021A7PS0001H · Dual: 2021A7B3PS0001H';
+  return e;
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function EventCard({ event, onDelete }) {
+  return (
+    <div className="event-card">
+      <div className="card-head">
+        <div className="card-meta">
+          <span className="card-date">{formatDate(event.date)}</span>
+          <span className="card-category">{event.category}</span>
+        </div>
+        <button className="btn-delete" onClick={() => onDelete(event.id)} title="Delete event">✕</button>
+      </div>
+      <h3 className="card-title">{event.title}</h3>
+      <p className="card-desc">{event.description}</p>
+      <div className="card-footer">
+        <div className="card-field">
+          <span className="card-field-label">Email</span>
+          <span className="card-field-val">{event.email}</span>
+        </div>
+        <div className="card-field">
+          <span className="card-field-label">BITS ID</span>
+          <span className="card-field-val">{event.bitsId.toUpperCase()}</span>
+        </div>
+        {event.activity && (
+          <div className="card-activity">
+            <span className="activity-icon">✦</span>
+            <span className="activity-text">{event.activity}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const EMPTY_FORM = { title: '', description: '', date: '', category: '', email: '', bitsId: '' };
+
+function App() {
+  const [events,      setEvents]      = useState([]);
+  const [form,        setForm]        = useState(EMPTY_FORM);
+  const [errors,      setErrors]      = useState({});
+  const [touched,     setTouched]     = useState({});
+  const [suggestion,  setSuggestion]  = useState(null);
+  const [fetching,    setFetching]    = useState(false);
+  const [fetchErr,    setFetchErr]    = useState('');
+  const [formOpen,    setFormOpen]    = useState(true);
+
+  const tlItemRefs   = useRef({});
+  const animatedIds  = useRef(new Set());
+  const prevPos      = useRef({});
+  const headerRef    = useRef(null);
+  const formSecRef   = useRef(null);
+
+  useEffect(() => {
+    if (headerRef.current)  gsap.from(headerRef.current,  { y: -40, opacity: 0, duration: .9, ease: 'power3.out' });
+    if (formSecRef.current) gsap.from(formSecRef.current, { y: 30,  opacity: 0, duration: .8, delay: .15, ease: 'power3.out' });
+  }, []);
+
+  useLayoutEffect(() => {
+    const newIds = events.map(e => e.id).filter(id => !animatedIds.current.has(id));
+
+    newIds.forEach((id, i) => {
+      const el = tlItemRefs.current[id];
+      if (el) {
+        gsap.from(el, { opacity: 0, y: -50, scale: .96, duration: .6, delay: i * .1, ease: 'power3.out' });
+        animatedIds.current.add(id);
+      }
+    });
+
+    if (newIds.length > 0) {
+      events.filter(e => !newIds.includes(e.id)).forEach(e => {
+        const el  = tlItemRefs.current[e.id];
+        const old = prevPos.current[e.id];
+        if (el && old !== undefined) {
+          const delta = old - el.getBoundingClientRect().top;
+          if (Math.abs(delta) > 2) gsap.from(el, { y: delta, duration: .55, ease: 'power3.out' });
+        }
+      });
+    }
+
+    prevPos.current = {};
+  }, [events]);
+
+  const change = (e) => {
+    const { name, value } = e.target;
+    setForm(p => ({ ...p, [name]: value }));
+    if (touched[name]) setErrors(p => ({ ...p, [name]: validate({ ...form, [name]: value })[name] }));
+  };
+
+  const blur = (e) => {
+    const { name } = e.target;
+    setTouched(p => ({ ...p, [name]: true }));
+    setErrors(p => ({ ...p, [name]: validate(form)[name] }));
+  };
+
+  const getSuggestion = async () => {
+    setFetching(true);
+    setFetchErr('');
+    try {
+      const res = await fetch('https://bored-api.appbrewery.com/random');
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setSuggestion(data);
+    } catch {
+      setFetchErr('Could not fetch suggestion — check connection and try again.');
+    }
+    setFetching(false);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const allTouched = Object.keys(EMPTY_FORM).reduce((a, k) => ({ ...a, [k]: true }), {});
+    setTouched(allTouched);
+    const errs = validate(form);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    Object.entries(tlItemRefs.current).forEach(([id, el]) => {
+      if (el) prevPos.current[id] = el.getBoundingClientRect().top;
+    });
+
+    const newEvent = { id: Date.now(), ...form, bitsId: form.bitsId.toUpperCase(), activity: suggestion?.activity || '' };
+    setEvents(p => [...p, newEvent].sort((a, b) => new Date(a.date) - new Date(b.date)));
+    setForm(EMPTY_FORM);
+    setSuggestion(null);
+    setErrors({});
+    setTouched({});
+  };
+
+  const handleDelete = (id) => {
+    const el = tlItemRefs.current[id];
+    if (!el) return;
+    gsap.set(el, { overflow: 'hidden' });
+    const tl = gsap.timeline({
+      onComplete: () => {
+        setEvents(p => p.filter(e => e.id !== id));
+        animatedIds.current.delete(id);
+        delete tlItemRefs.current[id];
+      }
+    });
+    tl.to(el, { opacity: 0, x: 60, duration: .3, ease: 'power2.in' })
+      .to(el, { height: 0, paddingBottom: 0, marginBottom: 0, duration: .28, ease: 'power2.in' });
+  };
+
+  const Field = ({ name, label, type = 'text', span2 = false }) => (
+    <div className={`field${span2 ? ' span2' : ''}`}>
+      <label htmlFor={name}>{label}</label>
+      <input id={name} type={type} name={name} value={form[name]} onChange={change} onBlur={blur} autoComplete="off" />
+      {errors[name] && touched[name] && <span className="error-msg">{errors[name]}</span>}
+    </div>
+  );
+
+  return (
+    <div className="app">
+      <header ref={headerRef}>
+        <div className="header-emblem">◈ ◈ ◈</div>
+        <h1>Chron<em>icle</em></h1>
+        <p>A timeline of your events — BITS &amp; beyond</p>
+      </header>
+
+      <main>
+        <div className="section-card" ref={formSecRef}>
+          <div className="section-head" onClick={() => setFormOpen(o => !o)}>
+            <span>Add New Event</span>
+            <span className={`chevron${formOpen ? ' open' : ''}`}>›</span>
+          </div>
+
+          {formOpen && (
+            <form onSubmit={handleSubmit} noValidate>
+              <div className="form-grid">
+                <Field name="title"       label="Event Title" />
+                <Field name="category"    label="Category" />
+                <Field name="date"        label="Date" type="date" />
+                <Field name="email"       label="BITS Email" type="email" />
+                <Field name="bitsId"      label="BITS ID" />
+                <div className="field span2">
+                  <label htmlFor="description">Description</label>
+                  <textarea id="description" name="description" value={form.description} onChange={change} onBlur={blur} rows={3} />
+                  {errors.description && touched.description && <span className="error-msg">{errors.description}</span>}
+                </div>
+              </div>
+
+              <div className="suggest-row">
+                <button type="button" className="btn-suggest" onClick={getSuggestion} disabled={fetching}>
+                  {fetching ? '· Fetching ·' : '✦ Get Activity Suggestion'}
+                </button>
+                {fetchErr && <span className="error-msg">{fetchErr}</span>}
+                {suggestion && !fetching && (
+                  <div className="suggestion-pill">
+                    <span className="pill-icon">✦</span>
+                    <span className="pill-text">{suggestion.activity}</span>
+                    <span className="pill-type">{suggestion.type}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="btn-submit">Add to Timeline →</button>
+              </div>
+            </form>
+          )}
+        </div>
+
+        <div className="section-card">
+          <div className="section-head static">
+            <span>Timeline</span>
+            <span className="meta">{events.length} {events.length === 1 ? 'event' : 'events'}</span>
+          </div>
+          <div className="timeline-wrap">
+            {events.length === 0 ? (
+              <div className="empty-state">No events yet — add your first one above.</div>
+            ) : (
+              <div className="timeline">
+                {events.map(event => (
+                  <div key={event.id} className="tl-item" ref={el => tlItemRefs.current[event.id] = el}>
+                    <div className="tl-dot" />
+                    <EventCard event={event} onDelete={handleDelete} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
